@@ -67,11 +67,6 @@
                 </button>
             </form>
 
-            <hr class="my-4">
-            <p class="text-center text-muted small mb-0">
-                Don't have an account?
-                <a href="{{ route('register') }}" class="text-decoration-none">Register</a>
-            </p>
         </div>
     </div>
 </div>
