@@ -12,56 +12,20 @@ class BackupController extends Controller
     {
         $dbConfig = config('database.connections.' . config('database.default'));
         $driver   = $dbConfig['driver'] ?? config('database.default');
-        $isNative = class_exists(\Native\Laravel\Facades\Dialog::class);
-        $filename = 'pos_backup_' . date('Y-m-d_His') . ($driver === 'sqlite' ? '.sqlite' : '.sql');
+        $filename = 'pos_backup_' . date('Y-m-d_His') . '.sql';
 
+        // ── SQLite ────────────────────────────────────────────────────────
         if ($driver === 'sqlite') {
             $dbPath = $dbConfig['database'];
             if (!file_exists($dbPath)) {
                 return back()->with('error', 'SQLite database file not found.');
             }
-
-            if ($isNative) {
-                try {
-                    $savePath = \Native\Laravel\Facades\Dialog::new()
-                        ->title('Save SQLite Database Backup')
-                        ->defaultPath($filename)
-                        ->save();
-                    
-                    if ($savePath) {
-                        copy($dbPath, $savePath);
-                        return back()->with('success', 'Backup saved successfully to ' . $savePath);
-                    }
-                    return back(); // user cancelled
-                } catch (Throwable $e) {
-                    report($e);
-                    return back()->with('error', 'Native backup save failed: ' . $e->getMessage());
-                }
-            }
-
+            $filename = 'pos_backup_' . date('Y-m-d_His') . '.sqlite';
             return response()->download($dbPath, $filename);
         }
 
+        // ── MySQL ─────────────────────────────────────────────────────────
         if ($driver === 'mysql') {
-            if ($isNative) {
-                try {
-                    $savePath = \Native\Laravel\Facades\Dialog::new()
-                        ->title('Save MySQL Database Backup')
-                        ->defaultPath($filename)
-                        ->save();
-
-                    if ($savePath) {
-                        $dumpContent = $this->buildMysqlDump($dbConfig['database']);
-                        file_put_contents($savePath, $dumpContent);
-                        return back()->with('success', 'Backup saved successfully to ' . $savePath);
-                    }
-                    return back(); // user cancelled
-                } catch (Throwable $e) {
-                    report($e);
-                    return back()->with('error', 'Native backup save failed: ' . $e->getMessage());
-                }
-            }
-
             $tmpFile = tempnam(sys_get_temp_dir(), 'pos_backup_') . '.sql';
             try {
                 if (file_put_contents($tmpFile, $this->buildMysqlDump($dbConfig['database'])) === false) {
@@ -69,20 +33,134 @@ class BackupController extends Controller
                 }
             } catch (Throwable $e) {
                 report($e);
-                return back()->with('error', 'Backup failed. Please check server configuration.');
+                return back()->with('error', 'MySQL Backup failed: ' . $e->getMessage());
             }
-
             return response()->download($tmpFile, $filename)->deleteFileAfterSend(true);
         }
 
-        return back()->with('error', 'Backup is only supported for MySQL and SQLite databases.');
+        // ── PostgreSQL ────────────────────────────────────────────────────
+        if ($driver === 'pgsql') {
+            $tmpFile = tempnam(sys_get_temp_dir(), 'pos_backup_') . '.sql';
+            try {
+                if (file_put_contents($tmpFile, $this->buildPgsqlDump()) === false) {
+                    throw new RuntimeException('Unable to write PostgreSQL backup file.');
+                }
+            } catch (Throwable $e) {
+                report($e);
+                return back()->with('error', 'PostgreSQL Backup failed: ' . $e->getMessage());
+            }
+            return response()->download($tmpFile, $filename)->deleteFileAfterSend(true);
+        }
+
+        return back()->with('error', 'Unsupported database driver: ' . $driver);
     }
 
-    private function buildMysqlDump(string $database): string
+    // ─────────────────────────────────────────────────────────────────────
+    //  PostgreSQL pure-PHP dump (no pg_dump binary needed)
+    // ─────────────────────────────────────────────────────────────────────
+    private function buildPgsqlDump(): string
     {
         $connection = DB::connection();
         $pdo        = $connection->getPdo();
-        $tables     = $connection->select('SHOW FULL TABLES WHERE Table_type = ?', ['BASE TABLE']);
+
+        // Get all user tables (public schema only, skip migrations table)
+        $tablesResult = $connection->select(
+            "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename"
+        );
+
+        $dump = [
+            '-- POS System PostgreSQL Backup',
+            '-- Generated at ' . now()->format('Y-m-d H:i:s'),
+            '-- Database: ' . config('database.connections.' . config('database.default') . '.database'),
+            '',
+            'SET session_replication_role = replica; -- disable FK checks',
+            '',
+        ];
+
+        foreach ($tablesResult as $tableRow) {
+            $table  = $tableRow->tablename;
+            $quoted = '"' . $table . '"';
+
+            // Get column names and types
+            $columns = $connection->select(
+                "SELECT column_name, data_type, udt_name
+                 FROM information_schema.columns
+                 WHERE table_schema = 'public' AND table_name = ?
+                 ORDER BY ordinal_position",
+                [$table]
+            );
+
+            if (empty($columns)) {
+                continue;
+            }
+
+            $dump[] = '-- Table: ' . $table;
+            $dump[] = 'TRUNCATE TABLE ' . $quoted . ' CASCADE;';
+            $dump[] = '';
+
+            $rows = $connection->table($table)->get();
+
+            foreach ($rows as $row) {
+                $rowArr  = (array) $row;
+                $colDefs = collect($columns)->keyBy('column_name');
+
+                $colNames = collect(array_keys($rowArr))
+                    ->map(fn($c) => '"' . $c . '"')
+                    ->implode(', ');
+
+                $values = collect($rowArr)->map(function ($v, $colName) use ($pdo, $colDefs) {
+                    if ($v === null) {
+                        return 'NULL';
+                    }
+
+                    $colDef  = $colDefs->get($colName);
+                    $dataType = $colDef->data_type ?? '';
+                    $udtName  = $colDef->udt_name ?? '';
+
+                    // Boolean columns
+                    if ($dataType === 'boolean' || $udtName === 'bool') {
+                        return $v ? 'TRUE' : 'FALSE';
+                    }
+
+                    // Numeric / integer columns - no quoting needed
+                    if (in_array($dataType, ['integer', 'bigint', 'smallint', 'numeric', 'decimal', 'double precision', 'real'])) {
+                        return $v;
+                    }
+
+                    // JSON columns
+                    if (in_array($dataType, ['json', 'jsonb'])) {
+                        return $pdo->quote($v);
+                    }
+
+                    return $pdo->quote((string) $v);
+                })->implode(', ');
+
+                $dump[] = 'INSERT INTO ' . $quoted . ' (' . $colNames . ') VALUES (' . $values . ');';
+            }
+
+            // Reset sequences for tables with id column
+            $hasId = collect($columns)->contains('column_name', 'id');
+            if ($hasId) {
+                $dump[] = "SELECT setval(pg_get_serial_sequence('$table', 'id'), COALESCE((SELECT MAX(id) FROM $quoted), 1));";
+            }
+
+            $dump[] = '';
+        }
+
+        $dump[] = 'SET session_replication_role = DEFAULT; -- re-enable FK checks';
+        $dump[] = '';
+
+        return implode(PHP_EOL, $dump);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    //  MySQL dump (unchanged)
+    // ─────────────────────────────────────────────────────────────────────
+    private function buildMysqlDump(string $database): string
+    {
+        $connection  = DB::connection();
+        $pdo         = $connection->getPdo();
+        $tables      = $connection->select('SHOW FULL TABLES WHERE Table_type = ?', ['BASE TABLE']);
         $tableColumn = 'Tables_in_' . $database;
 
         $dump = [
