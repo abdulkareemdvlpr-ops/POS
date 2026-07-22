@@ -177,50 +177,24 @@
             @if($deliveryPhone)
                 <div>Call For Home Delivery: {{ $deliveryPhone }}</div>
             @endif
-            <div class="software-credit" style="text-align: center; font-size: 11px; line-height: 1.4; margin-top: 5px;">
-    {!! str_replace('Abdul Kareem', '<br>Abdul Kareem', \App\Models\BusinessSetting::SOFTWARE_CREDIT) !!}
-</div>
         </div>
 
-    </section>
-
-    {{-- ════════════ BACK ════════════ --}}
-    <section class="receipt-page receipt-back {{ $isRtl ? 'receipt-back-rtl' : '' }}" @if($isRtl) dir="rtl" @endif>
-        <div class="print-doc-title">{{ $businessSettings->business_name ?? 'Pharmacy' }} - Bill #{{ $invoiceNumber }}</div>
-
-        {{-- Back logo top --}}
-        <div class="back-logo-wrap text-center">
-            @if($backLogo)
-                <img src="{{ route('media.show', $backLogo) }}" alt="Logo" class="back-logo">
+        {{-- Policy / Instructions Notes --}}
+        @if(count($backNotes) > 0)
+        <div class="receipt-policy-notes {{ $isRtl ? 'rtl-notes' : '' }}" style="margin-top: 10px; border-top: 1px dashed #aaa; padding-top: 8px; font-size: 0.78rem; text-align: {{ $isRtl ? 'right' : 'left' }};" @if($isRtl) dir="rtl" @endif>
+            @if($businessSettings->receipt_back_heading)
+                <div style="font-weight: bold; margin-bottom: 4px; text-align: center; font-size: 0.82rem;">{{ $businessSettings->receipt_back_heading }}</div>
             @endif
-            @if($businessSettings->business_name)
-                <div class="back-brand-name">{{ $businessSettings->business_name }}</div>
-            @endif
-        </div>
-
-        {{-- Heading box --}}
-        @if($businessSettings->receipt_back_heading)
-        <div class="back-heading-box">
-            {{ $businessSettings->receipt_back_heading }}
+            <div style="padding: 0 4px; line-height: 1.4;">
+                @foreach($backNotes as $note)
+                    <div style="margin-bottom: 3px;">{{ $isRtl ? '•' : '*' }} {{ $note }}</div>
+                @endforeach
+            </div>
         </div>
         @endif
 
-        {{-- Policy notes --}}
-        <div class="back-notes">
-            @forelse($backNotes as $note)
-                <div class="back-note-item">{{ $note }}</div>
-            @empty
-                <div class="back-note-item">Returns accepted within 15 days with original receipt.</div>
-                <div class="back-note-item">Use medicines as per doctor's advice only.</div>
-                <div class="back-note-item">Check expiry and dosage before use.</div>
-            @endforelse
-        </div>
-
-        {{-- Back logo bottom --}}
-        <div class="back-logo-wrap text-center" style="margin-top:auto;padding-top:20px;">
-            @if($backLogo)
-                <img src="{{ route('media.show', $backLogo) }}" alt="Logo" class="back-logo">
-            @endif
+        <div class="software-credit" style="text-align: center; font-size: 11px; line-height: 1.4; margin-top: 15px;">
+            {!! str_replace('Abdul Kareem', '<br>Abdul Kareem', \App\Models\BusinessSetting::SOFTWARE_CREDIT) !!}
         </div>
 
     </section>
@@ -334,11 +308,12 @@
     .receipt-page  {
         border: 0;
         border-radius: 0;
-        padding: 13mm 8mm 10mm;
-        min-height: 100vh;
+        padding: 8mm 5mm;
+        min-height: auto !important;
+        height: auto !important;
         box-sizing: border-box;
-        break-after: page;
-        page-break-after: always;
+        break-after: auto;
+        page-break-after: auto;
         box-shadow: none;
         overflow: visible;
     }
