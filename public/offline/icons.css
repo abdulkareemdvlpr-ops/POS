@@ -1,0 +1,12 @@
+/*
+  Offline icon-font replacement.
+  This project has no internet access to load a real icon font, so
+  icons were previously drawn using plain text characters (e.g. "@" for
+  a person icon, "#" for a lock icon). Those looked like broken/garbled
+  symbols in the UI. Icons are now hidden and every action in the app
+  uses a plain text label instead, so nothing depends on this file for
+  meaning.
+*/
+.bi::before {
+    display: none;
+}
