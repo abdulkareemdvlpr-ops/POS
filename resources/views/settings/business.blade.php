@@ -143,35 +143,14 @@
                             @error('logo')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                         </div>
 
-                        {{-- ── Back Logo ── --}}
+                        {{-- ── Receipt Instructions ── --}}
                         <div class="col-12 border-top pt-3 mt-2">
-                            <h6 class="fw-bold mb-0">Back-Side Logo</h6>
-                            <p class="text-muted small mb-0">Appears at the top and bottom of the back side. If not set, the front logo is used.</p>
-                        </div>
-                        <div class="col-12">
-                            @if($businessSetting->back_logo_path)
-                                <div class="d-flex align-items-center gap-3 mb-2">
-                                    <img src="{{ route('media.show', $businessSetting->back_logo_path) }}" alt="Back logo"
-                                        style="height:64px;max-width:160px;object-fit:contain;border:1px solid #e5e7eb;border-radius:6px;padding:5px;background:#fff;">
-                                    <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" name="remove_back_logo" value="1" id="remove_back_logo">
-                                        <label class="form-check-label text-muted small" for="remove_back_logo">Remove back logo</label>
-                                    </div>
-                                </div>
-                            @endif
-                            <input type="file" name="back_logo" class="form-control @error('back_logo') is-invalid @enderror" accept="image/*">
-                            <div class="form-text">Optional. Max 2MB. JPG, PNG, WebP.</div>
-                            @error('back_logo')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
-                        </div>
-
-                        {{-- ── Receipt Back ── --}}
-                        <div class="col-12 border-top pt-3 mt-2">
-                            <h6 class="fw-bold mb-0">Receipt Back Side</h6>
-                            <p class="text-muted small mb-0">Heading and instructions printed on the back of the receipt.</p>
+                            <h6 class="fw-bold mb-0">Receipt Instructions / Terms</h6>
+                            <p class="text-muted small mb-0">Heading and instructions printed at the bottom of the front receipt.</p>
                         </div>
 
                         <div class="col-md-7">
-                            <label class="form-label fw-semibold">Back Side Heading</label>
+                            <label class="form-label fw-semibold">Instructions Heading</label>
                             <input type="text" name="receipt_back_heading"
                                 class="form-control"
                                 style="{{ ($businessSetting->receipt_back_rtl ?? false) ? 'direction:rtl; font-family:\'Jameel Noori Nastaleeq\', \'Urdu Typesetting\', Tahoma, Arial, sans-serif; font-size:1.1rem; letter-spacing:normal !important;' : '' }}"
@@ -182,19 +161,19 @@
                                 <input class="form-check-input" type="checkbox" role="switch" name="receipt_back_rtl" value="1"
                                     id="receipt_back_rtl" {{ old('receipt_back_rtl', $businessSetting->receipt_back_rtl ?? false) ? 'checked' : '' }}>
                                 <label class="form-check-label fw-semibold" for="receipt_back_rtl">
-                                    Enable Urdu / RTL Mode on Back
+                                    Enable Urdu / RTL Mode
                                 </label>
                             </div>
                         </div>
 
                         <div class="col-12">
-                            <label class="form-label fw-semibold">Back Side Instructions</label>
+                            <label class="form-label fw-semibold">Receipt Instructions</label>
                             <textarea name="receipt_back_notes" rows="8"
                                 class="form-control"
                                 placeholder="Enter each instruction on a new line. For Urdu, type in Urdu directly."
                                 style="{{ ($businessSetting->receipt_back_rtl ?? false) ? 'direction:rtl; font-family:\'Jameel Noori Nastaleeq\', \'Urdu Typesetting\', Tahoma, Arial, sans-serif; font-size:1.1rem; line-height:2; letter-spacing:normal !important;' : '' }}"
                                 >{{ old('receipt_back_notes', $businessSetting->receipt_back_notes) }}</textarea>
-                            <div class="form-text">One instruction per line. Enable RTL Mode above for Urdu text.</div>
+                            <div class="form-text">One instruction per line. These will print at the bottom of the bill.</div>
                         </div>
 
                         {{-- Immutable Branding --}}

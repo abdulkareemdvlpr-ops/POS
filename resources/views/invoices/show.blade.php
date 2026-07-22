@@ -194,7 +194,7 @@
         @endif
 
         <div class="software-credit" style="text-align: center; font-size: 11px; line-height: 1.4; margin-top: 15px;">
-            {!! str_replace('Abdul Kareem', '<br>Abdul Kareem', \App\Models\BusinessSetting::SOFTWARE_CREDIT) !!}
+            {!! str_replace('ABDUL KAREEM', '<br>ABDUL KAREEM', \App\Models\BusinessSetting::SOFTWARE_CREDIT) !!}
         </div>
 
     </section>

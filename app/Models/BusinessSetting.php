@@ -11,7 +11,7 @@ class BusinessSetting extends Model
 {
     use HasFactory;
 
-    public const SOFTWARE_CREDIT = 'Computer Software developed by TRITEC Abdul Kareem Ph No 03196410725';
+    public const SOFTWARE_CREDIT = 'Developed by TRITEC ABDUL KAREEM Ph No 03196410725';
 
     protected $fillable = [
         'business_name',
